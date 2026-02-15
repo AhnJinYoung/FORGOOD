@@ -66,10 +66,26 @@ setup_repo() {
   if [ -d "$PROJECT_DIR/.git" ]; then
     log "Repo exists at $PROJECT_DIR — pulling latest..."
     cd "$PROJECT_DIR"
-    git pull origin main
+
+    # .env is in .gitignore so git won't touch it, but be extra safe
+    if [ -f .env ]; then
+      cp .env .env.backup
+      log "Backed up .env → .env.backup (just in case)"
+    fi
+
+    # Detect default branch (main or master)
+    local BRANCH
+    BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "master")
+    git pull origin "$BRANCH"
+
+    # Restore .env if it was somehow removed
+    if [ ! -f .env ] && [ -f .env.backup ]; then
+      mv .env.backup .env
+      warn "Restored .env from backup"
+    fi
   else
     log "Cloning repo to $PROJECT_DIR..."
-    read -rp "GitHub repo URL (e.g., https://github.com/you/forgood.git): " REPO_URL
+    read -rp "GitHub repo URL (e.g., https://github.com/AhnJinYoung/FORGOOD.git): " REPO_URL
     sudo mkdir -p "$PROJECT_DIR"
     sudo chown "$USER:$USER" "$PROJECT_DIR"
     git clone "$REPO_URL" "$PROJECT_DIR"
@@ -78,26 +94,48 @@ setup_repo() {
 }
 
 # ── 3. Environment setup ────────────────────────────────────
+#   .env lives ONLY on the server — never committed to GitHub.
+#   On first run: creates from template. On re-runs: never overwrites.
 setup_env() {
   local PROJECT_DIR="${PROJECT_DIR:-/opt/forgood}"
   cd "$PROJECT_DIR"
 
-  if [ ! -f .env ]; then
-    log "Creating .env from .env.example..."
-    cp .env.example .env
-    warn "Edit .env with your actual values:"
-    warn "  nano $PROJECT_DIR/.env"
-    warn ""
-    warn "Required values:"
-    warn "  DB_PASSWORD     — strong random password"
-    warn "  OPENROUTER_API_KEY — from https://openrouter.ai/keys"
-    warn "  API_DOMAIN      — your domain or EC2 public IP"
-    warn "  CORS_ORIGIN     — your Vercel URL"
-    warn ""
-    read -rp "Press Enter after editing .env (or Ctrl+C to do it later)..."
-  else
-    log ".env already exists"
+  if [ -f .env ]; then
+    log ".env already exists — keeping your existing secrets intact ✅"
+    log "  To edit: nano $PROJECT_DIR/.env"
+    return
   fi
+
+  log "Creating .env from .env.example..."
+  cp .env.example .env
+
+  # Generate a random DB password automatically
+  local RANDOM_PW
+  RANDOM_PW=$(openssl rand -base64 24 | tr -d '=/+' | head -c 24)
+  sed -i "s/CHANGE_ME_TO_A_STRONG_PASSWORD/$RANDOM_PW/g" .env
+  log "Generated random DB_PASSWORD"
+
+  warn ""
+  warn "═══════════════════════════════════════════════════"
+  warn "  IMPORTANT: Edit .env with your secret values!"
+  warn "═══════════════════════════════════════════════════"
+  warn ""
+  warn "  nano $PROJECT_DIR/.env"
+  warn ""
+  warn "  Required:"
+  warn "    OPENROUTER_API_KEY  — from https://openrouter.ai/keys"
+  warn "    API_DOMAIN          — your domain or EC2 public IP"
+  warn "    CORS_ORIGIN         — your Vercel URL (e.g. https://forgood-web.vercel.app)"
+  warn ""
+  warn "  Optional (for on-chain rewards):"
+  warn "    AGENT_PRIVATE_KEY   — wallet private key"
+  warn "    TREASURY_ADDRESS    — deployed contract address"
+  warn "    FORGOOD_TOKEN_ADDRESS — deployed token address"
+  warn ""
+  warn "  .env is NEVER pushed to GitHub (it's in .gitignore)."
+  warn "  It will be preserved across future 'git pull' updates."
+  warn ""
+  read -rp "Press Enter after editing .env (or Ctrl+C to do it later)..."
 }
 
 # ── 4. SSL setup ─────────────────────────────────────────────
