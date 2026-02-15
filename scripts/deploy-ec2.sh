@@ -95,7 +95,7 @@ setup_repo() {
 
 # ── 3. Environment setup ────────────────────────────────────
 #   .env lives ONLY on the server — never committed to GitHub.
-#   On first run: creates from template. On re-runs: never overwrites.
+#   On first run: generates it inline. On re-runs: never overwrites.
 setup_env() {
   local PROJECT_DIR="${PROJECT_DIR:-/opt/forgood}"
   cd "$PROJECT_DIR"
@@ -106,34 +106,55 @@ setup_env() {
     return
   fi
 
-  log "Creating .env from .env.example..."
-  cp .env.example .env
+  log "No .env found — generating one now..."
 
-  # Generate a random DB password automatically
+  # Auto-generate a random DB password
   local RANDOM_PW
   RANDOM_PW=$(openssl rand -base64 24 | tr -d '=/+' | head -c 24)
-  sed -i "s/CHANGE_ME_TO_A_STRONG_PASSWORD/$RANDOM_PW/g" .env
-  log "Generated random DB_PASSWORD"
+
+  cat > .env <<EOF
+# ════════════════════════════════════════════════════
+#  FORGOOD — Server Environment (generated on $(date +%Y-%m-%d))
+#  This file lives ONLY on this server. Never push to GitHub.
+# ════════════════════════════════════════════════════
+
+# ── Database ─────────────────────────────────────────
+DB_USER=postgres
+DB_PASSWORD=$RANDOM_PW
+DB_NAME=forgood
+
+# ── API Mode ─────────────────────────────────────────
+FORGOOD_MODE=serving
+
+# ── Domain / CORS ────────────────────────────────────
+API_DOMAIN=REPLACE_WITH_YOUR_EC2_IP_OR_DOMAIN
+SITE_URL=https://forgood-web.vercel.app
+CORS_ORIGIN=https://forgood-web.vercel.app
+
+# ── AI (OpenRouter) ─────────────────────────────────
+OPENROUTER_API_KEY=REPLACE_WITH_YOUR_KEY
+
+# ── On-Chain (optional — leave blank for mock mode) ──
+AGENT_PRIVATE_KEY=
+TREASURY_ADDRESS=
+FORGOOD_TOKEN_ADDRESS=
+REGISTRY_ADDRESS=
+AUTO_PAYOUT=true
+EOF
 
   warn ""
   warn "═══════════════════════════════════════════════════"
-  warn "  IMPORTANT: Edit .env with your secret values!"
+  warn "  .env created! Now edit it with your real values:"
   warn "═══════════════════════════════════════════════════"
   warn ""
   warn "  nano $PROJECT_DIR/.env"
   warn ""
-  warn "  Required:"
-  warn "    OPENROUTER_API_KEY  — from https://openrouter.ai/keys"
-  warn "    API_DOMAIN          — your domain or EC2 public IP"
-  warn "    CORS_ORIGIN         — your Vercel URL (e.g. https://forgood-web.vercel.app)"
+  warn "  You MUST set:"
+  warn "    API_DOMAIN         — your EC2 public IP or domain"
+  warn "    OPENROUTER_API_KEY — from https://openrouter.ai/keys"
+  warn "    CORS_ORIGIN        — your Vercel URL"
   warn ""
-  warn "  Optional (for on-chain rewards):"
-  warn "    AGENT_PRIVATE_KEY   — wallet private key"
-  warn "    TREASURY_ADDRESS    — deployed contract address"
-  warn "    FORGOOD_TOKEN_ADDRESS — deployed token address"
-  warn ""
-  warn "  .env is NEVER pushed to GitHub (it's in .gitignore)."
-  warn "  It will be preserved across future 'git pull' updates."
+  warn "  DB_PASSWORD was auto-generated: $RANDOM_PW"
   warn ""
   read -rp "Press Enter after editing .env (or Ctrl+C to do it later)..."
 }
