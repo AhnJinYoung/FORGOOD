@@ -1,10 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // "standalone" is used by Docker (Dockerfile.web), but Vercel ignores it —
-  // Vercel uses its own build system. Keeping it here is harmless and lets
-  // both Docker & Vercel work from the same config.
-  output: "standalone",
+  // Use "standalone" only in Docker builds. On Vercel it causes path issues.
+  ...(process.env.VERCEL ? {} : { output: "standalone" }),
   experimental: {
     serverActions: { bodySizeLimit: "2mb" }
   },
@@ -14,6 +12,22 @@ const nextConfig = {
       { protocol: "https", hostname: "**" },
       { protocol: "http", hostname: "localhost" },
     ],
+  },
+  // Suppress missing optional peer dependencies from wallet libs
+  webpack: (config, { webpack }) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      "pino-pretty": false,
+      "lokijs": false,
+      "encoding": false,
+    };
+    // Ignore react-native modules that MetaMask SDK optionally imports
+    config.plugins.push(
+      new webpack.IgnorePlugin({
+        resourceRegExp: /^@react-native-async-storage\/async-storage$/,
+      })
+    );
+    return config;
   },
   async rewrites() {
     // Rewrites are only used in local dev and Docker (where INTERNAL_API_URL
