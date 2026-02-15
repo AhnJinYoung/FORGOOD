@@ -1,0 +1,139 @@
+# ================================================================
+#  FORGOOD Docker Compose — full dev/test stack
+#
+#  Quick start:
+#    docker compose up -d                  # postgres + api (test)
+#    docker compose up -d --build          # rebuild images first
+#    docker compose --profile web up -d    # + Next.js frontend
+#    docker compose --profile serving up   # api in serving mode
+#    docker compose down                   # stop everything
+#    docker compose logs -f api            # tail API logs
+#
+#  ⚡ REQUIRED environment variables (set before running):
+#
+#    AI features (verification, screening, evaluation):
+#      export OPENROUTER_API_KEY=sk-or-v1-...   # Get from https://openrouter.ai/keys
+#
+#    On-chain features (real token rewards):
+#      export AGENT_PRIVATE_KEY=0x...            # Agent wallet private key (with 0x prefix)
+#      export TREASURY_ADDRESS=0x...             # Deployed ForGoodTreasury address
+#      export FORGOOD_TOKEN_ADDRESS=0x...        # Deployed MockToken (FORGOOD) address
+#
+#    Deploy contracts:  bash scripts/deploy-contracts.sh
+#    Or:                source .env.contracts
+#
+#  OpenClaw agent:
+#    OpenClaw runs natively on the host (not in Docker) because
+#    it needs access to Telegram/Discord/WhatsApp channels.
+#    Run:  openclaw gateway --port 18789
+#    It connects to the API at http://localhost:4000
+#    Setup: bash scripts/setup-openclaw.sh
+# ================================================================
+
+services:
+  # ─── Database ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: forgood
+    ports:
+      - "5432:5432"
+    volumes:
+      - forgood_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  # ─── API (test mode — default) ────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/forgood?schema=public
+      PORT: "4000"
+      HOST: "0.0.0.0"
+      FORGOOD_MODE: "test"
+      # AI — set OPENROUTER_API_KEY in your shell before docker compose up
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
+      OPENROUTER_MODEL_TEST: "openrouter/auto"
+      OPENROUTER_MODEL_VISION_TEST: "openrouter/auto"
+      OPENROUTER_REFERER: "http://localhost:4000"
+      OPENROUTER_TITLE: "FORGOOD"
+      # On-chain — deploy contracts first: bash scripts/deploy-contracts.sh
+      AGENT_PRIVATE_KEY: "${AGENT_PRIVATE_KEY:-}"
+      TREASURY_ADDRESS: "${TREASURY_ADDRESS:-}"
+      FORGOOD_TOKEN_ADDRESS: "${FORGOOD_TOKEN_ADDRESS:-}"
+      REGISTRY_ADDRESS: "${REGISTRY_ADDRESS:-}"
+      MONAD_RPC_URL: "https://testnet-rpc.monad.xyz"
+      AUTO_PAYOUT: "true"
+    volumes:
+      - forgood_uploads:/app/uploads
+    restart: unless-stopped
+
+  # ─── API (serving mode) ───────────────────────────────────
+  #   Activate with:  docker compose --profile serving up -d
+  api-serving:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - serving
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/forgood?schema=public
+      PORT: "4000"
+      HOST: "0.0.0.0"
+      FORGOOD_MODE: "serving"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
+      OPENROUTER_MODEL: "moonshotai/kimi-k2.5"
+      OPENROUTER_MODEL_VISION: "moonshotai/kimi-k2.5"
+      OPENROUTER_REFERER: "https://forgood.xyz"
+      OPENROUTER_TITLE: "FORGOOD"
+      AGENT_PRIVATE_KEY: "${AGENT_PRIVATE_KEY:-}"
+      TREASURY_ADDRESS: "${TREASURY_ADDRESS:-}"
+      FORGOOD_TOKEN_ADDRESS: "${FORGOOD_TOKEN_ADDRESS:-}"
+      REGISTRY_ADDRESS: "${REGISTRY_ADDRESS:-}"
+      MONAD_RPC_URL: "https://testnet-rpc.monad.xyz"
+      AUTO_PAYOUT: "true"
+    volumes:
+      - forgood_uploads:/app/uploads
+    restart: unless-stopped
+
+  # ─── Web (Next.js frontend) ───────────────────────────────
+  #   Activate with:  docker compose --profile web up -d
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    profiles:
+      - web
+    environment:
+      INTERNAL_API_URL: "http://api:4000"
+      NEXT_PUBLIC_API_URL: "http://localhost:4000"
+      NEXT_PUBLIC_TREASURY_ADDRESS: "${TREASURY_ADDRESS:-}"
+      NEXT_PUBLIC_TOKEN_ADDRESS: "${FORGOOD_TOKEN_ADDRESS:-}"
+    restart: unless-stopped
+
+volumes:
+  forgood_pgdata:
+  forgood_uploads:

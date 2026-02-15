@@ -1,0 +1,57 @@
+# ============================================================
+#  FORGOOD Web (Next.js) — Dockerfile
+#  Multi-stage: install → build → standalone runtime
+# ============================================================
+
+# ── Stage 1: deps ──────────────────────────────────────────
+FROM node:22-slim AS deps
+RUN corepack enable && corepack prepare pnpm@9.15.5 --activate
+WORKDIR /app
+
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
+COPY apps/web/package.json            apps/web/
+COPY packages/shared/package.json     packages/shared/
+COPY packages/agent/package.json      packages/agent/
+COPY apps/api/package.json            apps/api/
+
+# Contracts is a Foundry project with no package.json — create a stub
+RUN mkdir -p packages/contracts && echo '{"name":"@forgood/contracts","version":"0.0.1","private":true}' > packages/contracts/package.json
+
+RUN pnpm install --frozen-lockfile
+
+# ── Stage 2: build ─────────────────────────────────────────
+FROM deps AS build
+
+COPY packages/shared/ packages/shared/
+COPY packages/agent/  packages/agent/
+COPY apps/web/         apps/web/
+
+# Next.js collects anonymous telemetry — disable in CI/Docker
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# API URL for Next.js rewrites (Docker internal network)
+ENV INTERNAL_API_URL=http://api:4000
+# Public URL baked into client JS (browser uses /api proxy, so this is fallback)
+ENV NEXT_PUBLIC_API_URL=http://localhost:4000
+# On-chain contract addresses (set at build time for client-side wagmi calls)
+ENV NEXT_PUBLIC_TREASURY_ADDRESS=""
+ENV NEXT_PUBLIC_TOKEN_ADDRESS=""
+
+RUN pnpm --filter @forgood/web build
+
+# ── Stage 3: runner ────────────────────────────────────────
+FROM node:22-slim AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV INTERNAL_API_URL=http://api:4000
+EXPOSE 3000
+
+# Next.js standalone output copies only what's needed
+COPY --from=build /app/apps/web/.next/standalone ./
+COPY --from=build /app/apps/web/.next/static     ./apps/web/.next/static
+COPY --from=build /app/apps/web/public/           ./apps/web/public/
+
+CMD ["node", "apps/web/server.js"]

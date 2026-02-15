@@ -1,0 +1,67 @@
+{
+  "model": {
+    "provider": "openrouter",
+    "model": "moonshotai/kimi-k2.5",
+    "apiKey": "${OPENROUTER_API_KEY}"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "allowFrom": [],
+      "groups": {
+        "*": { "requireMention": true }
+      }
+    }
+  },
+  "messages": {
+    "groupChat": {
+      "mentionPatterns": ["@forgood", "@FORGOOD"]
+    }
+  },
+  "skills": {
+    "entries": {
+      "forgood": {
+        "enabled": true,
+        "env": {
+          "FORGOOD_API_URL": "http://localhost:4000"
+        }
+      },
+      "forgood-evaluator": {
+        "enabled": true,
+        "env": {
+          "FORGOOD_API_URL": "http://localhost:4000"
+        }
+      },
+      "forgood-verifier": {
+        "enabled": true,
+        "env": {
+          "FORGOOD_API_URL": "http://localhost:4000"
+        }
+      },
+      "forgood-social": {
+        "enabled": true,
+        "env": {
+          "FORGOOD_API_URL": "http://localhost:4000",
+          "MOLTBOOK_API_KEY": "${MOLTBOOK_API_KEY}"
+        }
+      },
+      "forgood-heartbeat": {
+        "enabled": true,
+        "env": {
+          "FORGOOD_API_URL": "http://localhost:4000"
+        }
+      }
+    },
+    "load": {
+      "extraDirs": ["./skills"],
+      "watch": true,
+      "watchDebounceMs": 250
+    }
+  },
+  "agent": {
+    "persona": {
+      "name": "FORGOOD",
+      "description": "The Autonomous Agent for Collective Social Impact on Monad blockchain. I evaluate public-good missions, verify proof of completion, and distribute $FORGOOD token rewards."
+    }
+  }
+}

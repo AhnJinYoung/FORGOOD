@@ -1,0 +1,43 @@
+{
+  "name": "forgood",
+  "private": true,
+  "packageManager": "pnpm@9.15.5",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "format": "pnpm -r format",
+    "test:stack:up": "node scripts/docker-compose-up.mjs",
+    "test:stack:down": "node scripts/docker-compose-down.mjs",
+    "dev:api": "cross-env FORGOOD_MODE=test pnpm --filter @forgood/api dev",
+    "dev:api:test": "cross-env FORGOOD_MODE=test pnpm --filter @forgood/api dev:test",
+    "dev:api:serving": "cross-env FORGOOD_MODE=serving pnpm --filter @forgood/api dev:serving",
+    "dev:web": "pnpm --filter @forgood/web dev",
+    "test": "node scripts/test-smoke.mjs",
+    "test:smoke": "node scripts/test-smoke.mjs",
+    "test:smoke:skip-db": "node scripts/test-smoke.mjs --skip-db",
+    "test:api:smoke": "node scripts/test-smoke.mjs",
+    "test:api:smoke:bash": "bash ./scripts/test-api.sh",
+    "test:runtime:bash": "bash ./scripts/test-runtime.sh",
+    "doctor": "node scripts/doctor.mjs",
+    "check": "node scripts/doctor.mjs",
+    "doctor:bash": "bash ./scripts/doctor.sh",
+    "prisma:generate": "pnpm --filter @forgood/api prisma:generate",
+    "prisma:migrate": "pnpm --filter @forgood/api prisma:migrate",
+    "docker:up": "docker compose up -d",
+    "docker:up:build": "docker compose up -d --build",
+    "docker:up:full": "docker compose --profile web up -d --build",
+    "docker:up:serving": "docker compose --profile serving up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f api",
+    "docker:build": "docker compose build",
+    "docker:ps": "docker compose ps"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "typescript": "^5.7.3"
+  }
+}

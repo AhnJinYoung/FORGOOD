@@ -1,0 +1,33 @@
+# ── Dependencies & build artifacts ──
+node_modules
+**/node_modules
+
+# ── Git ──
+.git
+.gitignore
+
+# ── Environment (injected via docker-compose) ──
+.env
+.env.*
+!apps/api/.env.example
+
+# ── Contracts build output (large, not needed at runtime) ──
+packages/contracts/lib
+packages/contracts/cache
+packages/contracts/out
+packages/contracts/script
+packages/contracts/test
+packages/contracts/src
+
+# ── Editor / OS ──
+.vscode
+.idea
+*.swp
+*.swo
+*~
+Thumbs.db
+.DS_Store
+
+# ── Dev-only files ──
+Dev/
+LICENSE

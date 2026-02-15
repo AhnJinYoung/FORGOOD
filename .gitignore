@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.*
+.DS_Store
+apps/**/.next
+apps/**/out
+apps/**/dist
+packages/**/dist
+packages/**/out
+packages/**/artifacts
+packages/**/cache
+packages/**/broadcast
+packages/**/typechain-types
+coverage

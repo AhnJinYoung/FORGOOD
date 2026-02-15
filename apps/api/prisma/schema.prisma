@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MissionStatus {
+  proposed
+  evaluated
+  active
+  proof_submitted
+  verified
+  rejected
+  rewarded
+}
+
+model Mission {
+  id               String        @id @default(uuid())
+  title            String
+  description      String
+  category         String
+  location         String?
+  proposer         String
+  status           MissionStatus @default(proposed)
+  rewardAmount     BigInt?
+  aiDifficulty     Int?
+  aiImpact         Int?
+  aiConfidence     Float?
+  aiRationale      String?
+  metadataUri      String?
+  proofUri         String?
+  proofNote        String?
+  proofSubmittedBy String?
+  onchainTxHash    String?
+  claimedBy        String?
+  claimedAt        DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  proofs           Proof[]
+}
+
+model Proof {
+  id         String   @id @default(uuid())
+  missionId  String
+  submitter  String
+  proofUri   String
+  note       String?
+  verdict    String?
+  confidence Float?
+  evidence   Json?
+  createdAt  DateTime @default(now())
+
+  mission    Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@index([missionId])
+}
+
+model UserProfile {
+  address     String   @id                         // wallet address (0x…)
+  displayName String?
+  bio         String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
