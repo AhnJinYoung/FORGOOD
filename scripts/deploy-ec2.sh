@@ -42,13 +42,19 @@ install_docker() {
   sudo apt-get update -y
   sudo apt-get install -y ca-certificates curl gnupg
 
+  # Detect OS: ubuntu or debian
+  . /etc/os-release
+  local DISTRO="$ID"                    # "ubuntu" or "debian"
+  local CODENAME="$VERSION_CODENAME"    # e.g. "jammy", "bookworm"
+  log "Detected OS: $DISTRO $CODENAME"
+
   sudo install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  curl -fsSL "https://download.docker.com/linux/$DISTRO/gpg" | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
   sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
   echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$DISTRO \
+    $CODENAME stable" | \
     sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
   sudo apt-get update -y
